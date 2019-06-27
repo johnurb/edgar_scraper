@@ -84,15 +84,16 @@ def get_form_page(url):
     r = requests.get(url)
     r_text = r.text
     
-    with open('test.txt', 'w') as fout:
+    
+    temp_filename = url.replace('/', '')
+    with open(temp_filename, 'w') as fout:
         fout.write(r_text)
         
-    with open('test.txt', 'r') as fin:
+    with open(temp_filename, 'r') as fin:
         lines = fin.readlines()
-    os.remove('test.txt')
+    os.remove(temp_filename)
 
-    page_text_file = 'test.txt'
-    with open(page_text_file, 'w') as fout:
+    with open(temp_filename, 'w') as fout:
         fout.write('url: ' + url + '\n')
         for line in lines:
             if line.strip() == '':
@@ -100,8 +101,8 @@ def get_form_page(url):
             else:
                 fout.write(line.strip().lower() + '\n')
 
-    process_page(page_text_file, url)
-    os.remove(page_text_file)
+    process_page(temp_filename, url)
+    os.remove(temp_filename)
 
 
 # function to pull all desired data/variables from an Edgar 'S' filing
@@ -218,16 +219,24 @@ def process_form_urls():
     write_csv_header()
     file_names = [ '8-k.txt', 'sc 13d.txt', 'sc 13e4.txt', '425.txt', 'sc to-i.txt'] 
     for file_name in file_names:
-        lines = []
+        good_lines = []
         with open(file_name, 'r') as fin:
             lines = fin.readlines()
-            #with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
-            #    future_to_file = {executor.submit(get_form_page, line): line for line in lines}
             for line in lines:
-                if line == '':
+                if line.strip() == '':
                     pass
                 else:
-                    get_form_page(line.strip())
+                    good_lines.append(line.strip())
+            
+            
+        with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
+            future_to_file = {executor.submit(get_form_page, line.strip()): line for line in good_lines}
+                
+            #for line in lines:
+            #    if line == '':
+            #        pass
+            #    else:
+            #        get_form_page(line.strip())
 
 
 def count_num_entries():
@@ -272,10 +281,11 @@ def combine_csvs():
             writer.writerow(line)
    
         
-    
-#process_form_urls()
+process_form_urls()
 #count_num_entries()
-combine_csvs()
+#combine_csvs()
+
+#main_setup()
 
 
     
