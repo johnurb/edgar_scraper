@@ -272,9 +272,77 @@ def count_total_csv_rows():
         print(lines)
 
 
+def individual_csvs():
+    with open('final_compiled.csv', 'r') as fin:
+        _8k_lines = []
+        sc_13d_lines = []
+        sc_13e4_lines = []
+        _425_lines = []
+        sc_to_i_lines = []
+
+        reader = csv.reader(fin)
+        for line in reader:
+            if '8-k' in line[2]:
+                _8k_lines.append(line)
+            if 'sc 13d' in line[2]:
+                sc_13d_lines.append(line)
+            if 'sc 13e4' in line[2]:
+                sc_13e4_lines.append(line)
+            if '425' in line[2]:
+                _425_lines.append(line)
+            if 'sc to-i' in line[2]:
+                sc_to_i_lines.append(line)
+
+
+
+    file_names = [ '8-k.csv', 'sc_13d.csv', 'sc_13e4.csv', '425.csv', 'sc_to-i.csv']
+    for file_name in file_names:
+        with open(file_name, 'w') as fout:
+            print('Writing Ouput CSV Header')
+            header = [
+                'CIK', #Edgar Identifier
+                'FDATE', #Filing Date
+                'Form', #Type
+                'CONAME', #Company Name
+                'FNAME', #URL
+                'Splitoff', #Number of times a splitoff keyword is mentioned in the document
+                'Exchange', #Number of times an exchange keyword is mentioned in the document
+                'Stock Exchange', #Number of times 'stock exchange' is mentioned in the document
+            ]
+
+            writer = csv.writer(fout)
+            writer.writerow(header)
+
+            if '8-k' in file_name:
+                for line in _8k_lines:
+                    writer.writerow(line)
+
+            if 'sc_13d' in file_name:
+                for line in sc_13d_lines:
+                    writer.writerow(line)
+
+            if 'sc_13e4' in file_name:
+                for line in sc_13e4_lines:
+                    writer.writerow(line)
+
+            if '425' in file_name:
+                for line in _425_lines:
+                    writer.writerow(line)
+
+            if 'sc_to-i' in file_name:
+                for line in sc_to_i_lines:
+                    writer.writerow(line)
+
+
+
+
+
+
+
 
 
 #main_setup()
 #process_form_urls()
 #count_num_entries()
 #count_total_csv_rows()
+individual_csvs()
