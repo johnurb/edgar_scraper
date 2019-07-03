@@ -15,8 +15,8 @@ def make_idx(file_name):
     start_year = 1994       # change start_year and end_year to re-define the chunk
     current_year = 2019     # change start_year and end_year to re-define the chunk
     current_quarter = 4     # do not change this line
-    
-    
+
+
     years = list(range(start_year, current_year))
     quarters = ['QTR1', 'QTR2', 'QTR3', 'QTR4']
     history = [(y, q) for y in years for q in quarters]
@@ -24,19 +24,19 @@ def make_idx(file_name):
         history.append((current_year, 'QTR%d' % i))
     urls = ['https://www.sec.gov/Archives/edgar/full-index/%d/%s/master.idx' % (x[0], x[1]) for x in history]
     urls.sort()
-        
+
     db_filename = file_name.replace('.csv', '.db')
     con = sqlite3.connect(db_filename)
     cur = con.cursor()
     cur.execute('DROP TABLE IF EXISTS idx')
     cur.execute('CREATE TABLE idx (cik TEXT, conm TEXT, type TEXT, date TEXT, path TEXT)')
-    
+
     for url in urls:
         lines = requests.get(url).content.decode("utf-8", "ignore").splitlines()
         records = [tuple(line.split('|')) for line in lines[11:]]
         cur.executemany('INSERT INTO idx VALUES (?, ?, ?, ?, ?)', records)
         print(url, 'downloaded and wrote to SQLite')
-    
+
     con.commit()
     con.close()
 
@@ -50,10 +50,11 @@ def db_to_csv(file_name):
     curs = conn.cursor()
     query = 'select * from idx'
     curs.execute(query)
-    
+
     results = pandas.read_sql_query(query, conn)
     results.to_csv(file_name, index=False)
-        
+
+
 # get text files containing urls to pull from the spreadsheet of Edgar pages
 def csv_to_texts(csv_filename, forms):
     print('Compiling Lists of URLs From Each Form-Type to Scrape')
@@ -63,7 +64,7 @@ def csv_to_texts(csv_filename, forms):
         reader = csv.reader(fin)
         for row in reader:
             lines.append(row)
-    
+
     for line in lines:
         for form in forms:
             if form == line[2].lower():
@@ -72,23 +73,19 @@ def csv_to_texts(csv_filename, forms):
                     txt_file_name = txt_file_name.replace('/a', '')
                 with open(txt_file_name, 'a') as fout:
                     fout.write(root_url + line[-1] + '\n')
-            
-        
-    
 
-    
 
 # pull edgar text files from list of urls
 def get_form_page(url):
     print('Processing: {}'.format(url.strip()))
     r = requests.get(url)
     r_text = r.text
-    
-    
+
+
     temp_filename = url.replace('/', '')
     with open(temp_filename, 'w') as fout:
         fout.write(r_text)
-        
+
     with open(temp_filename, 'r') as fin:
         lines = fin.readlines()
     os.remove(temp_filename)
@@ -116,39 +113,39 @@ def process_page(page_path, url):
     # keywords to look for in page
     split_key_words = ['splitoff', 'split off', 'split-off']
     split_num_present = 0
-    
+
     exchange_key_words = ['exchange offer', 'tax-free exchange', 'tax free exchange', 'share exchange', 'exchange of share', 'exchange-of-share']
     exchange_num_present = 0
-    
+
     stock_exchange_words = ['stock exchange']
     stock_exchange_num_present = 0
-    
+
     with open(page_path, 'r') as fin:
         page_lines = fin.readlines()
-    
+
     # going through each line of page text looking for desired data/variables
     for line in page_lines:
         # if keywords in file take note and count up
         if any(word in line for word in split_key_words):
             split_num_present += 1
-        
+
         if any(word in line for word in exchange_key_words):
             exchange_num_present += 1
-        
+
         if any(word in line for word in stock_exchange_words):
             stock_exchange_num_present += 1
 
         # set page info
         if 'company conformed name:' in line.strip():
             company_name = line.split('company conformed name:')[1].strip()
-            
+
         if 'central index key:' in line:
             cik = line.split('central index key:')[1].strip()
-            
+
         if 'filed as of date:' in line:
             filing_date = line.split('filed as of date:')[1].strip()
             filing_date = filing_date[0:4] + '/' + filing_date[4:6] + '/' + filing_date[6:]
-            
+
         if 'conformed submission type:' in line:
             form = line.split('conformed submission type:')[1].strip()
 
@@ -168,10 +165,8 @@ def process_page(page_path, url):
     with open('compiled.csv', 'a') as fout:
         writer = csv.writer(fout)
         writer.writerow(out_line)
-        
-         
-    
-    
+
+
 # set results spreadsheet header
 def write_csv_header():
     print('Writing Ouput CSV Header')
@@ -190,48 +185,58 @@ def write_csv_header():
         writer = csv.writer(fout)
         writer.writerow(header)
 
-        
-    
+
 def main_setup():
     # list of the form types being looked at
     form_types = ['8-k', 'sc 13e4', 'sc to-i', '425', 'sc 13d', 'sc 13d/a']
-    
+
     # filename for the master-spreadsheet of edgar urls for desired filetypes
     edgar_data = 'edgar_data.csv'
     # if the master spreadsheet doesn't exist we need to create it from Edgar directory data
     if not os.path.exists(edgar_data):
         make_idx(edgar_data)
         db_to_csv(edgar_data)
-        
+
     print('Edgar Master CSV Available For Processing')
     db_filename = edgar_data.replace('.csv', '.db')
     if os.path.exists(db_filename):
         os.remove(db_filename)
-    
+
     text_file_names = []
     for form in form_types:
         text_file_names.append(form + '.txt')
-    
+
     csv_to_texts(edgar_data, form_types)
-    
-    
+
+
 def process_form_urls():
-    write_csv_header()
-    file_names = [ '8-k.txt', 'sc 13d.txt', 'sc 13e4.txt', '425.txt', 'sc to-i.txt'] 
+    if os.path.isfile('compiled.csv'):
+        pass
+    else:
+        write_csv_header()
+
+    file_names = [ '8-k.txt', 'sc 13d.txt', 'sc 13e4.txt', '425.txt', 'sc to-i.txt']
+    file_lines = []
     for file_name in file_names:
-        good_lines = []
         with open(file_name, 'r') as fin:
             lines = fin.readlines()
             for line in lines:
                 if line.strip() == '':
                     pass
                 else:
-                    good_lines.append(line.strip())
-            
-            
-        with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
-            future_to_file = {executor.submit(get_form_page, line.strip()): line for line in good_lines}
-                
+                    file_lines.append(line.strip())
+
+    already_scraped = []
+    with open('compiled.csv', 'r') as fin:
+        reader = csv.reader(fin)
+        for line in reader:
+            already_scraped.append(line[4].strip())
+
+    good_lines = [line for line in file_lines if line not in already_scraped]
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
+        future_to_file = {executor.submit(get_form_page, line.strip()): line for line in good_lines}
+
             #for line in lines:
             #    if line == '':
             #        pass
@@ -240,7 +245,8 @@ def process_form_urls():
 
 
 def count_num_entries():
-    file_names = [ '8-k.txt', 'sc 13d.txt', 'sc 13e4.txt', '425.txt', 'sc to-i.txt'] 
+    file_names = [ '8-k.txt', 'sc 13d.txt', 'sc 13e4.txt', '425.txt', 'sc to-i.txt']
+    total_lines = 0
     for file_name in file_names:
         with open(file_name, 'r') as fin:
             good_lines = []
@@ -250,60 +256,25 @@ def count_num_entries():
                     pass
                 else:
                     good_lines.append(line)
-            
-            print(file_name + ':' + str(len(good_lines)))
-        
-        print()
-    
 
-def combine_csvs():
-    write_csv_header()
-    csvs_folder = 'csvs'
-    main_folder = os.getcwd()
-    combined = os.path.join(main_folder, csvs_folder)
-    csvs = os.listdir(combined)
-    sheet_lines = []
-    for csv_file in csvs:
-        if csv_file == '.DS_Store':
-            pass
-        else:
-            csv_filename = os.path.join(combined, csv_file)
-            with open(csv_filename, 'r') as fin:
-                reader = csv.reader(fin)
-                for line in reader:
-                    sheet_lines.append(line)
-        
-    
-    
-    with open('compiled.csv', 'a') as fout:
-        writer = csv.writer(fout)
-        for line in sheet_lines:
-            writer.writerow(line)
-   
-        
-process_form_urls()
-#count_num_entries()
-#combine_csvs()
+            total_lines += len(good_lines)
+
+    print(total_lines)
+
+
+def count_total_csv_rows():
+    with open('compiled.csv', 'r') as fin:
+        reader = csv.reader(fin)
+        lines = 0
+        for line in reader:
+            lines +=1
+
+        print(lines)
+
+
+
 
 #main_setup()
-
-
-    
-            
-    
-    
-    
-
-    
-    
-    
-    
-
-            
-    
-    
-    
-    
-    
-    
-    
+#process_form_urls()
+#count_num_entries()
+#count_total_csv_rows()
